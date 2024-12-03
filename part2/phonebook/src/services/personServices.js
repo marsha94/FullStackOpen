@@ -1,5 +1,6 @@
 import axios from "axios";
-const baseUrl = "http://localhost:3001/persons";
+// const baseUrl = "https://phonebook-backend-yhcz.onrender.com/api/persons";
+const baseUrl = "http://localhost:3001/api/persons";
 
 const getPersons = async () => {
   try {
@@ -7,6 +8,7 @@ const getPersons = async () => {
     return response.data;
   } catch (error) {
     console.log("Error fetching data", error);
+    throw error;
   }
 };
 
@@ -15,16 +17,17 @@ const addPerson = async (personObj) => {
     const response = await axios.post(baseUrl, personObj);
     return response.data;
   } catch (error) {
-    console.log("Error adding data", error);
+    console.log("Error adding person", error);
+    throw error;
   }
 };
 
 const deletePerson = async (id) => {
   try {
-    const response = await axios.delete(`${baseUrl}/${id}`);
-    return response.data;
+    await axios.delete(`${baseUrl}/${id}`);
   } catch (error) {
-    console.log("Person has already deleted", error);
+    console.log("Error deleting person", error);
+    throw error;
   }
 };
 
@@ -33,7 +36,8 @@ const updatePerson = async (id, personObj) => {
     const response = await axios.put(`${baseUrl}/${id}`, personObj);
     return response.data;
   } catch (error) {
-    console.log("Error updating data", error);
+    console.log("Error updating person", error);
+    throw error;
   }
 };
 

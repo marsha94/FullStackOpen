@@ -3,6 +3,7 @@ import Filter from "./components/Filter";
 import Form from "./components/Form";
 import Person from "./components/Person";
 import personServices from "./services/personServices";
+import Notification from "./components/Notification";
 
 const App = () => {
   const [persons, setPersons] = useState([]);
@@ -10,6 +11,8 @@ const App = () => {
   const [newNumber, setNewNumber] = useState("");
   const [newNameFilter, setNameFilter] = useState("");
   const [filterNames, setFilterNames] = useState([]);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,17 +83,25 @@ const App = () => {
     };
 
     const addNewPerson = async () => {
+      console.log(personObj);
       try {
         const newPerson = await personServices.addPerson(personObj);
         setPersons(persons.concat(newPerson));
-        setNewName("");
-        setNewNumber("");
+        setSuccessMessage(`Add ${newName}`);
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 3000);
       } catch (error) {
-        console.log(error);
+        setErrorMessage(`Please input name`);
+        setTimeout(() => {
+          setErrorMessage(null);
+        }, 3000);
       }
     };
 
     addNewPerson();
+    setNewName("");
+    setNewNumber("");
   };
 
   const handleDelete = (id, name) => {
@@ -98,10 +109,21 @@ const App = () => {
 
     const deletePerson = async () => {
       try {
-        const deletedPerson = await personServices.deletePerson(id);
-        setPersons(persons.filter((person) => person.id !== deletedPerson.id));
+        await personServices.deletePerson(id);
+        setPersons(persons.filter((person) => person.id !== id));
       } catch (error) {
-        console.log(error);
+        setErrorMessage(
+          `Information of ${name} has already removed from server`
+        );
+        try {
+          const updatedPersons = await personServices.getPersons();
+          setPersons(updatedPersons);
+        } catch (error) {
+          console.log(error);
+        }
+        setTimeout(() => {
+          setErrorMessage(null);
+        }, 3000);
       }
     };
 
@@ -118,6 +140,7 @@ const App = () => {
   return (
     <div>
       <h2>Phonebook</h2>
+      <Notification success={successMessage} error={errorMessage} />
       <Filter onFilterInput={handleFilterNameInput} />
       <h3>Add A New</h3>
       <Form
