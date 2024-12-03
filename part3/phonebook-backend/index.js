@@ -1,4 +1,4 @@
-import express, { response } from "express";
+import express from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -97,6 +97,29 @@ app.post("/api/persons", morgan(postLog), (req, res) => {
 
   persons.push(person);
   res.json(person);
+});
+
+app.put("/api/persons/:id", (req, res) => {
+  const id = req.params.id;
+  const personExists = persons.find((person) => person.id === id);
+
+  if (!personExists) {
+    return res.status(404).json({
+      error: `Person with id ${id} not found`,
+    });
+  }
+
+  const updatedPerson = {
+    id: id,
+    name: req.body.name,
+    number: req.body.number,
+  };
+
+  persons = persons.map((person) =>
+    person.id === id ? updatedPerson : person
+  );
+
+  res.json(updatedPerson);
 });
 
 app.delete("/api/persons/:id", (req, res) => {
