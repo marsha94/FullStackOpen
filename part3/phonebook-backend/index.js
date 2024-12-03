@@ -1,9 +1,11 @@
 import express, { response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import cors from "cors";
 
 const app = express();
 dotenv.config();
+app.use(cors());
 
 const postLog = (tokens, req, res) => {
   return [
