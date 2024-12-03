@@ -49,7 +49,13 @@ let persons = [
   },
 ];
 
-const newId = Math.floor(Math.random() * 1000000);
+const newId = () => {
+  let id;
+  do {
+    id = Math.floor(Math.random() * 1000000);
+  } while (persons.some((person) => person.id === String(id)));
+  return id;
+};
 
 app.get("/api/persons", (req, res) => {
   res.json(persons);
@@ -90,7 +96,7 @@ app.post("/api/persons", morgan(postLog), (req, res) => {
   }
 
   const person = {
-    id: String(newId),
+    id: String(newId()),
     name: req.body.name,
     number: req.body.number,
   };
