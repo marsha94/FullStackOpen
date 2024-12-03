@@ -79,7 +79,6 @@ const App = () => {
     const personObj = {
       name: newName,
       number: newNumber,
-      id: String(persons.length + 1),
     };
 
     const addNewPerson = async () => {
