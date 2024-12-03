@@ -1,4 +1,4 @@
-import express from "express";
+import express, { response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 
@@ -16,6 +16,10 @@ const postLog = (tokens, req, res) => {
     "ms",
     JSON.stringify(req.body),
   ].join(" ");
+};
+
+const unknownEndpoint = (req, res) => {
+  res.status(404).send({ error: "unknown endpoint" });
 };
 
 app.use(express.json());
@@ -106,6 +110,8 @@ app.delete("/api/persons/:id", (req, res) => {
   persons = persons.filter((person) => person.id !== id);
   res.status(204).end();
 });
+
+app.use(unknownEndpoint);
 
 const PORT = parseInt(process.env.PORT) || 3001;
 app.listen(PORT);
