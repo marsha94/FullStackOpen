@@ -80,11 +80,13 @@ app.get("/api/persons/:id", (req, res) => {
 
 app.post("/api/persons", morgan(postLog), (req, res) => {
   if (!req.body.name || !req.body.number) {
+    console.log("Will throw error cause something is mussing");
     return res.status(400).json({
       error: "content missing",
     });
   }
 
+  console.log("will add new person");
   const personExists = persons.find(
     (person) => person.name.toLowerCase() === req.body.name.toLowerCase()
   );
