@@ -1,10 +1,11 @@
 import express from "express";
 import morgan from "morgan";
 import cors from "cors";
+import dotenv from "dotenv";
+import Person from "./models/person.js";
 
+dotenv.config();
 const app = express();
-app.use(cors());
-app.use(express.static("dist"));
 
 const postLog = (tokens, req, res) => {
   return [
@@ -23,127 +24,119 @@ const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: "unknown endpoint" });
 };
 
-app.use(express.json());
+const errorHandler = (error, req, res, next) => {
+  if (error.name === "CastError") {
+    return res.status(400).send({
+      name: error.name,
+      error: "Malformatted id",
+    });
+  }
 
-let persons = [
-  {
-    id: "1",
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: "2",
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: "3",
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: "4",
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
+  if (error.name === "ValidationError") {
+    return res.status(400).json({
+      name: error.name,
+      error: "Missing name",
+    });
+  }
 
-const newId = () => {
-  let id;
-  do {
-    id = Math.floor(Math.random() * 1000000);
-  } while (persons.some((person) => person.id === String(id)));
-  return id;
+  if (error.name === "DuplicateNameError") {
+    return res.status(400).json({
+      name: error.name,
+      error: error.message,
+      existingPersonID: error.existingPersonID,
+    });
+  }
+
+  return res.status(500).json({
+    error: "An unexpected error occurred. Please try again later",
+  });
 };
 
-app.get("/api/persons", (req, res) => {
-  res.json(persons);
-});
+app.use(cors());
+app.use(express.static("dist"));
+app.use(express.json());
 
-app.get("/info", (req, res) => {
-  res.send(
-    `<p>Phonebook has info for ${persons.length} people<p><p>${Date()}</p>`
-  );
-});
-
-app.get("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  const personExists = persons.find((person) => person.id === id);
-
-  if (!personExists) {
-    return res.status(404).json({
-      error: `Person with id ${id} not found`,
+app.get("/api/persons", (req, res, next) => {
+  Person.find({})
+    .then((persons) => {
+      res.json(persons);
+    })
+    .catch((error) => {
+      next(error);
     });
-  }
-
-  res.json(personExists);
 });
 
-app.post("/api/persons", morgan(postLog), (req, res) => {
-  if (!req.body.name || !req.body.number) {
-    console.log("Will throw error cause something is mussing");
-    return res.status(400).json({
-      error: "content missing",
-    });
-  }
+app.get("/info", (req, res, next) => {
+  Person.find({})
+    .then((persons) => {
+      res.send(
+        `<p>Phonebook has info for ${persons.length} people<p><p>${Date()}</p>`
+      );
+    })
+    .catch((error) => next(error));
+});
 
-  console.log("will add new person");
-  const personExists = persons.find(
-    (person) => person.name.toLowerCase() === req.body.name.toLowerCase()
-  );
+app.get("/api/persons/:id", (req, res, next) => {
+  Person.findById(req.params.id)
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
+});
 
-  if (personExists) {
-    return res.status(400).json({ error: "name must be unique" });
-  }
-
-  const person = {
-    id: String(newId()),
+app.post("/api/persons", morgan(postLog), (req, res, next) => {
+  const person = new Person({
     name: req.body.name,
     number: req.body.number,
-  };
+  });
 
-  persons.push(person);
-  res.json(person);
+  Person.findOne({ name: req.body.name })
+    .then((personExist) => {
+      if (personExist) {
+        const error = new Error(`The name '${req.body.name}' already exists.`);
+        error.name = "DuplicateNameError";
+        error.existingPersonID = personExist.id;
+        throw error;
+      }
+
+      return person.save();
+    })
+    .then((person) => {
+      res.json(person);
+    })
+    .catch((error) => next(error));
 });
 
-app.put("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  const personExists = persons.find((person) => person.id === id);
+app.put("/api/persons/:id", (req, res, next) => {
+  const { name, number } = req.body;
+  const person = { name, number };
 
-  if (!personExists) {
-    return res.status(404).json({
-      error: `Person with id ${id} not found`,
-    });
-  }
-
-  const updatedPerson = {
-    id: id,
-    name: req.body.name,
-    number: req.body.number,
-  };
-
-  persons = persons.map((person) =>
-    person.id === id ? updatedPerson : person
-  );
-
-  res.json(updatedPerson);
+  Person.findByIdAndUpdate(req.params.id, person, {
+    new: true,
+    runValidators: true,
+  })
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
-app.delete("/api/persons/:id", (req, res) => {
-  const id = req.params.id;
-  const personExists = persons.some((person) => person.id === id);
-
-  if (!personExists) {
-    return res.status(404).json({
-      error: `Person with id ${id} not found`,
-    });
-  }
-
-  persons = persons.filter((person) => person.id !== id);
-  res.status(204).end();
+app.delete("/api/persons/:id", (req, res, next) => {
+  Person.findByIdAndDelete(req.params.id)
+    .then(() => res.status(204).end())
+    .catch((error) => next(error));
 });
 
 app.use(unknownEndpoint);
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT);
