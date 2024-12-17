@@ -23,8 +23,9 @@ const postLog = (tokens, req, res) => {
 const unknownEndpoint = (req, res) => {
   res.status(404).send({ error: 'unknown endpoint' })
 }
-
-const errorHandler = (error, req, res) => {
+/* eslint-disable-next-line no-unused-vars */
+const errorHandler = (error, req, res, next) => {
+  console.log(error)
   if (error.name === 'CastError') {
     return res.status(400).send({
       name: error.name,
