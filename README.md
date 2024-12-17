@@ -1,2 +1,2 @@
 # FullStackOpenSubmission
-FullStackOpen submission
+FullStackOpen exercise submission
