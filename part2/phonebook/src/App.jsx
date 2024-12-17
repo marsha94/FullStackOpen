@@ -14,17 +14,32 @@ const App = () => {
   const [successMessage, setSuccessMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
+  const showMessage = (message, isError = false) => {
+    const setMessage = isError ? setErrorMessage : setSuccessMessage;
+    setMessage(message);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const personData = await personServices.getPersons();
-        setPersons(personData);
-      } catch (error) {
-        console.log(error);
-      }
+    const fetchData = () => {
+      personServices
+        .getPersons()
+        .then((persons) => {
+          setPersons(persons);
+        })
+        .catch((error) => console.log(error.message));
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    setFilterNames(() => {
+      if (!newNameFilter) return persons;
+      return persons.filter((person) =>
+        person.name.toLowerCase().includes(newNameFilter.toLowerCase())
+      );
+    });
+  }, [persons, newNameFilter]);
 
   const handleFilterNameInput = (event) => {
     setNameFilter(event.target.value);
@@ -38,103 +53,100 @@ const App = () => {
     setNewNumber(event.target.value);
   };
 
-  const handleAddNew = (event) => {
-    event.preventDefault();
-
-    const personExist = persons.find(
-      (person) => person.name.toLowerCase() === newName.toLowerCase()
+  const handleUpdatePerson = (personExist) => {
+    const toUpdate = window.confirm(
+      `${personExist.name} is already added to phonebook, replace the old number with the new?`
     );
 
-    if (personExist) {
-      const toUpdate = window.confirm(
-        `${personExist.name} is already added to phonebook, repalce the old number with the new?`
-      );
+    const person = {
+      ...personExist,
+      number: newNumber,
+    };
 
-      if (toUpdate) {
-        const personObj = {
-          ...personExist,
-          number: newNumber,
-        };
+    if (toUpdate) {
+      personServices
+        .updatePerson(personExist.id, person)
+        .then((updatedPerson) => {
+          showMessage(`Updated ${updatedPerson.name}`, false);
 
-        const update = async () => {
-          try {
-            const updatePerson = await personServices.updatePerson(
-              personExist.id,
-              personObj
-            );
+          const isFound = persons
+            .map((person) => person.id)
+            .includes(updatedPerson.id);
 
-            setPersons(
+          if (isFound) {
+            setPersons((persons) =>
               persons.map((person) =>
-                person.id === updatePerson.id ? updatePerson : person
+                person.id === updatedPerson.id
+                  ? { ...person, number: newNumber }
+                  : person
               )
             );
-          } catch (error) {
-            console.log(error);
+          } else {
+            setPersons(persons.concat(updatedPerson));
           }
-        };
-        return update();
-      }
+        })
+        .catch((error) => {
+          showMessage(error.message, true);
+        })
+        .finally(() => {
+          setNewName("");
+          setNewNumber("");
+        });
     }
+  };
 
-    const personObj = {
+  const handleNewPerson = (person) => {
+    personServices
+      .addPerson(person)
+      .then((newPerson) => {
+        showMessage(`Added ${newPerson.name}`, false);
+        setPersons(persons.concat(newPerson));
+      })
+      .catch((error) => {
+        showMessage(error.message, true);
+        if (error.name === "DuplicateNameError") {
+          person.id = error.id;
+          handleUpdatePerson(person);
+        }
+      })
+      .finally(() => {
+        setNewName("");
+        setNewNumber("");
+      });
+  };
+
+  const handleNewEntry = (event) => {
+    event.preventDefault();
+
+    const person = {
       name: newName,
       number: newNumber,
     };
 
-    const addNewPerson = async () => {
-      console.log(personObj);
-      try {
-        const newPerson = await personServices.addPerson(personObj);
-        setPersons(persons.concat(newPerson));
-        setSuccessMessage(`Add ${newName}`);
-        setTimeout(() => {
-          setSuccessMessage(null);
-        }, 3000);
-      } catch (error) {
-        setErrorMessage(`Please input name`);
-        setTimeout(() => {
-          setErrorMessage(null);
-        }, 3000);
-      }
-    };
+    const personExist = persons.find((person) => person.name === newName);
 
-    addNewPerson();
-    setNewName("");
-    setNewNumber("");
+    if (personExist) {
+      handleUpdatePerson(personExist);
+    } else {
+      handleNewPerson(person);
+    }
   };
 
   const handleDelete = (id, name) => {
-    const toDelete = window.confirm(`Delete ${name}`);
+    if (!window.confirm(`Delete ${name}`)) {
+      return;
+    }
 
-    const deletePerson = async () => {
-      try {
-        await personServices.deletePerson(id);
-        setPersons(persons.filter((person) => person.id !== id));
-      } catch (error) {
-        setErrorMessage(
-          `Information of ${name} has already removed from server`
-        );
-        try {
-          const updatedPersons = await personServices.getPersons();
-          setPersons(updatedPersons);
-        } catch (error) {
-          console.log(error);
-        }
-        setTimeout(() => {
-          setErrorMessage(null);
-        }, 3000);
-      }
-    };
-
-    if (toDelete) deletePerson();
+    personServices
+      .deletePerson(id)
+      .then(() => {
+        showMessage(`Remove ${name} successful`);
+        setPersons((persons) => persons.filter((person) => person.id != id));
+      })
+      .catch((error) => {
+        showMessage(error.message, true);
+      });
   };
-
-  useEffect(() => {
-    const names = persons.filter((person) =>
-      person.name.toLowerCase().includes(newNameFilter.toLowerCase())
-    );
-    setFilterNames(names);
-  }, [newNameFilter, persons]);
 
   return (
     <div>
@@ -143,7 +155,7 @@ const App = () => {
       <Filter onFilterInput={handleFilterNameInput} />
       <h3>Add A New</h3>
       <Form
-        onAddNew={handleAddNew}
+        onAddNew={handleNewEntry}
         onNameInput={handleNameInput}
         onNumberInput={handleNumberInput}
         name={newName}
