@@ -21,13 +21,13 @@ const postLog = (tokens, req, res) => {
 }
 
 const unknownEndpoint = (req, res) => {
-  res.status(404).send({ error: 'unknown endpoint' })
+  res.status(404).json({ error: 'unknown endpoint' })
 }
 /* eslint-disable-next-line no-unused-vars */
 const errorHandler = (error, req, res, next) => {
   console.log(error)
   if (error.name === 'CastError') {
-    return res.status(400).send({
+    return res.status(400).json({
       name: error.name,
       error: error.message,
     })
